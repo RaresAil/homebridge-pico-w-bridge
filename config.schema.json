@@ -1,0 +1,37 @@
+{
+  "pluginAlias": "RPiPicoWBridge",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "required": true,
+        "default": "PicoW Bridge"
+      },
+      "devices": {
+        "type": "array",
+        "items": {
+          "title": "Devices",
+          "type": "object",
+          "properties": {
+            "ip": {
+              "placeholder": "192.168.x.x",
+              "type": "string",
+              "title": "IP Address",
+              "required": true
+            },
+            "secret": {
+              "placeholder": "AES-256-CTR",
+              "type": "string",
+              "title": "Secret token",
+              "required": false
+            }
+          }
+        }
+      }
+    }
+  }
+}
