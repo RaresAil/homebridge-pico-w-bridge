@@ -16,6 +16,7 @@ export interface InputPacket<T = Record<string, any>> {
 
 export interface InfoPacket {
   firmware_version: string;
+  serial_number: string;
   country_code: string;
   uptime: number;
   type: number;

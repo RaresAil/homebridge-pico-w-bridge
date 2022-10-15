@@ -1,6 +1,7 @@
 import AsyncLock from 'async-lock';
-import Crypto from 'crypto';
 import EventEmitter from 'events';
+import { API } from 'homebridge';
+import Crypto from 'crypto';
 import Net from 'net';
 
 import DebugMode from '../debugMode';
@@ -17,7 +18,8 @@ export default class Device {
   private static readonly LOCK_NAME = 'device-operation';
   private static readonly PORT = 8098;
   private static readonly TYPES = {
-    1: AccessoryType.Thermostat
+    1: AccessoryType.Thermostat,
+    2: AccessoryType.Desk
   };
 
   public readonly eventHandler = new EventEmitter();
@@ -39,7 +41,7 @@ export default class Device {
       device: Device
     ) => void,
     private readonly ip: string,
-    private readonly uuid: string,
+    private readonly api: API,
     private readonly encryptionKey?: string
   ) {
     this.errorDebug = debug.errorDebug.bind(debug, `[Device][${ip}][Error]`);
@@ -113,12 +115,13 @@ export default class Device {
     }
 
     this.isFirstLoad = false;
+    const infoPacket = packet.data as InfoPacket;
 
     const context = {
-      info: packet.data as InfoPacket,
+      info: infoPacket,
       ip: this.ip,
-      uuid: this.uuid,
-      type: Device.TYPES[packet.data?.type as number]
+      uuid: this.api.hap.uuid.generate(infoPacket.serial_number),
+      type: Device.TYPES[parseInt(infoPacket?.type?.toString() || '-1')]
     };
 
     this.loadDevice(context, this);

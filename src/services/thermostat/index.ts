@@ -1,6 +1,4 @@
-import { Characteristic, Service } from 'homebridge';
-import { randomBytes } from 'crypto';
-import AsyncLock from 'async-lock';
+import { Characteristic } from 'homebridge';
 
 import CurrentHeatingCoolingState from './characteristics/CurrentHeatingCoolingState';
 import TargetHeatingCoolingState from './characteristics/TargetHeatingCoolingState';
@@ -10,8 +8,6 @@ import TargetTemperature from './characteristics/TargetTemperature';
 import CurrentHumidity from './characteristics/CurrentHumidity';
 
 import Platform, { DevicePlatformAccessory } from '../../platform';
-import { PACKET_TYPE } from '../../types/Device';
-import { PLUGIN_VERSION } from '../../settings';
 import Accessory from '../../types/Accessory';
 import Device from '../../api/Device';
 
@@ -19,9 +15,7 @@ export type AccessoryThisType = ThisType<{
   update(data: Partial<ThermostatData>): Promise<void>;
   requestUpdateData(): Promise<void>;
   readonly platform: Platform;
-  thermostatService: Service;
   cachedData: ThermostatData;
-  infoService: Service;
   getValidValues(
     forChar: 'target' | 'current' | 'unit',
     input: boolean
@@ -37,9 +31,7 @@ export interface ThermostatData {
   winter: boolean;
 }
 
-export default class ThermostatAccessory implements Accessory {
-  private readonly lock = new AsyncLock();
-
+export default class ThermostatAccessory extends Accessory<ThermostatData> {
   private currentHeatingCoolingState?: Characteristic;
   private targetHeatingCoolingState?: Characteristic;
   private temperatureDisplayUnits?: Characteristic;
@@ -47,8 +39,7 @@ export default class ThermostatAccessory implements Accessory {
   private targetTemperature?: Characteristic;
   private currentHumidity?: Characteristic;
 
-  private thermostatService?: Service;
-  private _cachedData: ThermostatData = {
+  protected _cachedData: ThermostatData = {
     target_temperature: 10,
     temperature: 0,
     heating: false,
@@ -78,7 +69,7 @@ export default class ThermostatAccessory implements Accessory {
     return this.accessory.context.uuid;
   }
 
-  private handleData(data: ThermostatData): void {
+  protected handleData(data: ThermostatData): void {
     this._cachedData = data;
 
     this.targetTemperature?.updateValue(this.cachedData.target_temperature);
@@ -96,38 +87,19 @@ export default class ThermostatAccessory implements Accessory {
   }
 
   constructor(
-    private readonly device: Device,
-    private readonly platform: Platform,
-    private readonly accessory: DevicePlatformAccessory
+    device: Device,
+    platform: Platform,
+    accessory: DevicePlatformAccessory
   ) {
+    super(device, platform, accessory);
+
     try {
-      this.device.eventHandler.on('data', this.handleData.bind(this));
-
-      this.accessory
-        .getService(this.platform.Service.AccessoryInformation)!
-        .setCharacteristic(
-          this.platform.Characteristic.Manufacturer,
-          'Raspberry Pi'
-        )
-        .setCharacteristic(
-          this.platform.Characteristic.Model,
-          this.accessory.context.type
-        )
-        .setCharacteristic(
-          this.platform.Characteristic.SerialNumber,
-          this.accessory.context.uuid
-        )
-        .setCharacteristic(
-          this.platform.Characteristic.FirmwareRevision,
-          `${PLUGIN_VERSION}-${this.accessory.context.info.firmware_version}`
-        );
-
-      this.thermostatService =
+      this.service =
         this.accessory.getService(this.platform.Service.Thermostat) ||
         this.accessory.addService(this.platform.Service.Thermostat);
 
       // Characteristics
-      this.currentHeatingCoolingState = this.thermostatService
+      this.currentHeatingCoolingState = this.service
         .getCharacteristic(
           this.platform.Characteristic.CurrentHeatingCoolingState
         )
@@ -139,7 +111,7 @@ export default class ThermostatAccessory implements Accessory {
           ]
         });
 
-      this.targetHeatingCoolingState = this.thermostatService
+      this.targetHeatingCoolingState = this.service
         .getCharacteristic(
           this.platform.Characteristic.TargetHeatingCoolingState
         )
@@ -152,15 +124,15 @@ export default class ThermostatAccessory implements Accessory {
           ]
         });
 
-      this.currentTemperature = this.thermostatService
+      this.currentTemperature = this.service
         .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
         .onGet(CurrentTemperature.get.bind(this));
 
-      this.currentHumidity = this.thermostatService
+      this.currentHumidity = this.service
         .getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
         .onGet(CurrentHumidity.get.bind(this));
 
-      this.targetTemperature = this.thermostatService
+      this.targetTemperature = this.service
         .getCharacteristic(this.platform.Characteristic.TargetTemperature)
         .onGet(TargetTemperature.get.bind(this))
         .onSet(TargetTemperature.set.bind(this))
@@ -168,66 +140,13 @@ export default class ThermostatAccessory implements Accessory {
           minStep: 0.5
         });
 
-      this.temperatureDisplayUnits = this.thermostatService
+      this.temperatureDisplayUnits = this.service
         .getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
         .onGet(TemperatureDisplayUnits.get.bind(this))
         .onSet(TemperatureDisplayUnits.set.bind(this));
     } catch (error: any) {
       platform.log.error(`Error: ${error?.message}`);
     }
-  }
-
-  private update(data: Partial<ThermostatData>): Promise<void> {
-    return this.lock.acquire(
-      'update',
-      () =>
-        new Promise<void>((resolve) => {
-          const cmd_id = randomBytes(12).toString('hex');
-          const eventName = `data-${cmd_id}`;
-          let responded = false;
-
-          const eventCallback = (data: ThermostatData) => {
-            if (responded) {
-              return;
-            }
-
-            this.handleData(data);
-            responded = true;
-            clearTimeout(timeout);
-            resolve();
-          };
-
-          const timeout = setTimeout(() => {
-            if (!responded) {
-              responded = true;
-              this.device.eventHandler.removeListener(eventName, eventCallback);
-              resolve();
-            }
-          }, 2000);
-
-          this.device.eventHandler.once(eventName, eventCallback);
-          this.device.sendData(
-            PACKET_TYPE.SET,
-            {
-              ...data
-            },
-            cmd_id
-          );
-        })
-    );
-  }
-
-  private receivingData = false;
-  private requestUpdateData(): Promise<void> {
-    return this.lock.acquire('update', async () => {
-      if (!this.receivingData) {
-        this.receivingData = true;
-        setTimeout(() => {
-          this.device.sendData(PACKET_TYPE.GET, {});
-          this.receivingData = false;
-        }, 750);
-      }
-    });
   }
 
   private getValidValues(
