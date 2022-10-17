@@ -96,7 +96,7 @@ export default class Platform implements DynamicPlatformPlugin {
   }
 
   private async discoverDevices() {
-    const { devices } = this.config ?? {};
+    const { devices } = this.config ?? { devices: [] };
 
     try {
       devices.forEach(
