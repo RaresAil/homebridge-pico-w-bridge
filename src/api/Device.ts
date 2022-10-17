@@ -31,7 +31,7 @@ export default class Device {
   private isFirstLoad = true;
   private isOpened = false;
 
-  private readonly errorDebug: (...message: any[]) => void;
+  private readonly error: (...message: any[]) => void;
   private readonly debug: (...message: any[]) => void;
 
   constructor(
@@ -44,7 +44,7 @@ export default class Device {
     private readonly api: API,
     private readonly encryptionKey?: string
   ) {
-    this.errorDebug = debug.errorDebug.bind(debug, `[Device][${ip}][Error]`);
+    this.error = debug.error.bind(debug, `[Device][${ip}][Error]`);
     this.debug = debug.debug.bind(debug, `[Device][${ip}]`);
 
     this.client.setTimeout(10 * 1000);
@@ -64,7 +64,7 @@ export default class Device {
   ): Promise<void> {
     await this.lock.acquire(Device.LOCK_NAME, () => {
       if (type !== PACKET_TYPE.GET && type !== PACKET_TYPE.SET) {
-        this.errorDebug('Invalid packet type.');
+        this.error('Invalid packet type.');
         return;
       }
 
@@ -74,7 +74,7 @@ export default class Device {
 
   private sendPacket(input: InputPacket): void {
     if (!this.isOpened) {
-      this.errorDebug('TCP connection is not opened.');
+      this.error('TCP connection is not opened.');
       return;
     }
 
@@ -97,7 +97,7 @@ export default class Device {
       case PACKET_TYPE.INFO:
         break;
       case PACKET_TYPE.ERROR:
-        this.errorDebug(packet.message || 'Unknown error.');
+        this.error(packet.message || 'Unknown error.');
         return;
       case PACKET_TYPE.GET:
       case PACKET_TYPE.SET:
@@ -180,7 +180,7 @@ export default class Device {
           );
         }
       } catch (error: any) {
-        this.errorDebug(error.message);
+        this.error(error.message);
       }
     });
   }
@@ -195,7 +195,7 @@ export default class Device {
 
   private onError(error: Error): void {
     this.lock.acquire(Device.LOCK_NAME, () => {
-      this.errorDebug(error.message);
+      this.error(error.message);
     });
   }
 
