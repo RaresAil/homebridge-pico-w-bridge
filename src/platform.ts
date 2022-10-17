@@ -10,6 +10,7 @@ import {
 } from 'homebridge';
 
 import ThermostatAccessory from './services/thermostat';
+import DeskAccessory from './services/desk';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { DeviceContext } from './types/Device';
@@ -27,17 +28,12 @@ export interface DeviceConfigSchema {
   ip: string;
 }
 
-export interface DeviceModeType {
-  Summer: number;
-  Winter: number;
-}
-
 export default class Platform implements DynamicPlatformPlugin {
   private static readonly LOCK_NAME = 'device-operation';
   private static readonly lock = new AsyncLock();
 
   private cachedAccessories: DevicePlatformAccessory[] = [];
-  private readonly registeredDevices: Accessory[] = [];
+  private readonly registeredDevices: Accessory<any>[] = [];
 
   public get Devices() {
     return this.registeredDevices;
@@ -48,11 +44,6 @@ export default class Platform implements DynamicPlatformPlugin {
     this.api.hap.Characteristic;
 
   public readonly debugger: DebugMode;
-
-  public readonly ModeType: DeviceModeType = {
-    Summer: this.Characteristic.TargetHeatingCoolingState.OFF,
-    Winter: this.Characteristic.TargetHeatingCoolingState.AUTO
-  };
 
   constructor(
     public readonly log: Logger,
@@ -108,17 +99,13 @@ export default class Platform implements DynamicPlatformPlugin {
     const { devices } = this.config ?? {};
 
     try {
-      if (devices?.length === 0) {
-        return;
-      }
-
       devices.forEach(
         ({ ip, secret }: DeviceConfigSchema) =>
           new Device(
             this.debugger,
             this.loadDevice.bind(this),
             ip,
-            this.api.hap.uuid.generate(ip),
+            this.api,
             secret
           )
       );
@@ -154,6 +141,9 @@ export default class Platform implements DynamicPlatformPlugin {
           case AccessoryType.Thermostat:
             Accessory = ThermostatAccessory;
             break;
+          case AccessoryType.Desk:
+            Accessory = DeskAccessory;
+            break;
           default:
             this.log.error(
               `Unknown accessory type '${deviceContext.type}' for '${deviceContext.ip}'`
@@ -180,7 +170,7 @@ export default class Platform implements DynamicPlatformPlugin {
           `Adding new accessory of type '${deviceContext.type}' for '${deviceContext.ip}'`
         );
         const accessory = new this.api.platformAccessory<DeviceContext>(
-          deviceContext.ip,
+          deviceContext.type,
           deviceContext.uuid
         );
         accessory.context = {
@@ -205,13 +195,20 @@ export default class Platform implements DynamicPlatformPlugin {
   private checkOldDevices() {
     Platform.lock.acquire(Platform.LOCK_NAME, async () => {
       await delay(100);
+      const devices = (
+        (this.config?.devices as DeviceConfigSchema[]) ?? []
+      ).reduce(
+        (acc, device) => ({
+          ...acc,
+          [device.ip]: true
+        }),
+        {}
+      );
+
       this.cachedAccessories = this.cachedAccessories
         .map((accessory) => {
           try {
-            const devices = (
-              (this.config?.devices as DeviceConfigSchema[]) ?? []
-            ).map((device) => this.api.hap.uuid.generate(device.ip));
-            const exists = devices.find((device) => device === accessory.UUID);
+            const exists = devices[accessory.context.ip];
 
             if (!exists) {
               this.log.info('Remove cached accessory:', accessory.displayName);
