@@ -1,7 +1,7 @@
 {
   "displayName": "Raspberry Pi PicoW Bridge",
   "name": "homebridge-pico-w-bridge",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Homebridge plugin for a custom RPi PicoW device",
   "license": "Apache-2.0",
   "repository": {

@@ -21,4 +21,8 @@ export default class DebugMode {
 
     this.log.error(`[DEBUG]: ${message.join(' ')}`);
   }
+
+  public error(...message: any[]): void {
+    this.log.error(`${message.join(' ')}`);
+  }
 }
