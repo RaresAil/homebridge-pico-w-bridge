@@ -1,15 +1,15 @@
 {
-  "displayName": "Raspberry Pi Thermostat Relay",
+  "displayName": "Raspberry Pi PicoW Bridge",
   "name": "homebridge-pico-w-bridge",
-  "version": "1.0.0",
-  "description": "Homebridge plugin for a custom Raspberry Pi Zero W Thermostat Relay",
+  "version": "1.0.1",
+  "description": "Homebridge plugin for a custom RPi PicoW device",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git://github.com/RaresAil/homebridge-iot-embedded.git"
+    "url": "git://github.com/RaresAil/homebridge-pico-w-bridge.git"
   },
   "bugs": {
-    "url": "https://github.com/RaresAil/homebridge-iot-embedded/issues"
+    "url": "https://github.com/RaresAil/homebridge-pico-w-bridge/issues"
   },
   "engines": {
     "node": ">=14.18.1",
