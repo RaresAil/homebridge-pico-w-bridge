@@ -4,6 +4,10 @@ import Platform, { DevicePlatformAccessory } from '../../platform';
 import Accessory from '../../types/Accessory';
 import Device from '../../api/Device';
 
+import CurrentPosition from './characteristics/CurrentPosition';
+import TargetPosition from './characteristics/TargetPosition';
+import PositionState from './characteristics/PositionState';
+
 export type AccessoryThisType = ThisType<{
   update(data: Partial<DeskData>): Promise<void>;
   requestUpdateData(): Promise<void>;
@@ -18,6 +22,10 @@ export interface DeskData {
 }
 
 export default class DeskAccessory extends Accessory<DeskData> {
+  private currentPosition?: Characteristic;
+  private targetPosition?: Characteristic;
+  private positionState?: Characteristic;
+
   protected _cachedData: DeskData = {
     position_state: this.platform.Characteristic.PositionState.STOPPED,
     current_height: 0,
@@ -31,18 +39,9 @@ export default class DeskAccessory extends Accessory<DeskData> {
   protected handleData(data: DeskData): void {
     this._cachedData = data;
 
-    // this.targetTemperature?.updateValue(this.cachedData.target_temperature);
-    // this.currentHeatingCoolingState?.updateValue(
-    //   this.getValidValues('current', this.cachedData.heating)
-    // );
-    // this.targetHeatingCoolingState?.updateValue(
-    //   this.getValidValues('target', this.cachedData.winter)
-    // );
-    // this.currentTemperature?.updateValue(this.cachedData.temperature);
-    // this.currentHumidity?.updateValue(this.cachedData.humidity);
-    // this.temperatureDisplayUnits?.updateValue(
-    //   this.getValidValues('unit', this.cachedData.celsius)
-    // );
+    this.targetPosition?.updateValue(this.cachedData.target_height);
+    this.currentPosition?.updateValue(this.cachedData.current_height);
+    this.positionState?.updateValue(this.cachedData.position_state);
   }
 
   constructor(
@@ -58,41 +57,18 @@ export default class DeskAccessory extends Accessory<DeskData> {
         this.accessory.addService(this.platform.Service.WindowCovering);
 
       // Characteristics
-      this.service
+      this.targetPosition = this.service
         .getCharacteristic(this.platform.Characteristic.TargetPosition)
-        .onGet(() => {
-          console.log('get TargetPosition');
-          return targetPosition;
-        })
-        .onSet((value) => {
-          const st = getState(position, value as number);
-          console.log('set TargetPosition %o - %o', value, st);
-          targetPosition = value as number;
+        .onGet(TargetPosition.get.bind(this))
+        .onSet(TargetPosition.set.bind(this));
 
-          state.updateValue(st);
-
-          setTimeout(() => {
-            position = targetPosition;
-            console.log('UPDATE %o', value);
-            pos.updateValue(targetPosition);
-            state.updateValue(2);
-          }, 1000);
-        });
-
-      state = this.service
+      this.positionState = this.service
         .getCharacteristic(this.platform.Characteristic.PositionState)
-        .onGet(() => {
-          console.log('get PositionState');
+        .onGet(PositionState.get.bind(this));
 
-          return getState(position, targetPosition);
-        });
-
-      pos = this.service
+      this.currentPosition = this.service
         .getCharacteristic(this.platform.Characteristic.CurrentPosition)
-        .onGet(() => {
-          console.log('get CurrentPosition');
-          return position;
-        });
+        .onGet(CurrentPosition.get.bind(this));
     } catch (error: any) {
       platform.log.error(`Error: ${error?.message}`);
     }

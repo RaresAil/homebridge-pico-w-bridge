@@ -195,13 +195,20 @@ export default class Platform implements DynamicPlatformPlugin {
   private checkOldDevices() {
     Platform.lock.acquire(Platform.LOCK_NAME, async () => {
       await delay(100);
+      const devices = (
+        (this.config?.devices as DeviceConfigSchema[]) ?? []
+      ).reduce(
+        (acc, device) => ({
+          ...acc,
+          [device.ip]: true
+        }),
+        {}
+      );
+
       this.cachedAccessories = this.cachedAccessories
         .map((accessory) => {
           try {
-            const devices = (
-              (this.config?.devices as DeviceConfigSchema[]) ?? []
-            ).map((device) => this.api.hap.uuid.generate(device.ip));
-            const exists = devices.find((device) => device === accessory.UUID);
+            const exists = devices[accessory.context.ip];
 
             if (!exists) {
               this.log.info('Remove cached accessory:', accessory.displayName);
