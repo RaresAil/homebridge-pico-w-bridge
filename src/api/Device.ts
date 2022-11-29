@@ -162,7 +162,9 @@ export default class Device {
 
         if (this.dataRead >= this.dataSize) {
           const rawData = this.decryptAES256CTR(this.dataBuilder.toString());
-          const data = JSON.parse(rawData);
+          const lastIndex = rawData.lastIndexOf('}');
+
+          const data = JSON.parse(rawData.slice(0, lastIndex + 1));
           this.debug(
             `Data received from the server: (${JSON.stringify(data)}).`
           );
@@ -180,6 +182,12 @@ export default class Device {
           );
         }
       } catch (error: any) {
+        const errorMessage: string = error.message.toString();
+        if (errorMessage.includes('JSON') && errorMessage.includes('token')) {
+          // In case of bad token, restart the connection.
+          this.destroy();
+        }
+
         this.error(error.message);
       }
     });
@@ -202,9 +210,7 @@ export default class Device {
   private onTimeout(): void {
     this.lock.acquire(Device.LOCK_NAME, () => {
       this.debug('TCP connection timed out');
-
-      this.client.end();
-      this.client.destroy();
+      this.destroy();
     });
   }
 
@@ -261,5 +267,10 @@ export default class Device {
       decipher.update(cipherText.subarray(16, cipherText.length)),
       decipher.final()
     ]).toString('utf8');
+  }
+
+  private destroy(): void {
+    this.client.end();
+    this.client.destroy();
   }
 }
