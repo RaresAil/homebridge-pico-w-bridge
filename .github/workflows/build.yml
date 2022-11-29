@@ -21,7 +21,7 @@ jobs:
       - name: Lint the project
         run: npm run lint
       - name: Audit the project
-        run: npm run audit
+        run: npm audit
       - name: Build the project
         run: npm run build
         env:
