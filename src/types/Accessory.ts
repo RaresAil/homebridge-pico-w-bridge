@@ -66,6 +66,7 @@ abstract class Accessory<T> {
 
             this.handleData(data);
             responded = true;
+            this.device.eventHandler.removeListener(eventName, eventCallback);
             clearTimeout(timeout);
             resolve();
           };
