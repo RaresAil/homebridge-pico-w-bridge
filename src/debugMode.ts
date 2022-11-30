@@ -25,4 +25,8 @@ export default class DebugMode {
   public error(...message: any[]): void {
     this.log.error(`${message.join(' ')}`);
   }
+
+  public warn(...message: any[]): void {
+    this.log.warn(`${message.join(' ')}`);
+  }
 }

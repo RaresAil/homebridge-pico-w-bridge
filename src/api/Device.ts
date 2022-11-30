@@ -33,6 +33,7 @@ export default class Device {
 
   private readonly error: (...message: any[]) => void;
   private readonly debug: (...message: any[]) => void;
+  private readonly warn: (...message: any[]) => void;
 
   constructor(
     debug: DebugMode,
@@ -45,6 +46,7 @@ export default class Device {
     private readonly encryptionKey?: string
   ) {
     this.error = debug.error.bind(debug, `[Device][${ip}][Error]`);
+    this.warn = debug.warn.bind(debug, `[Device][${ip}][Warn]`);
     this.debug = debug.debug.bind(debug, `[Device][${ip}]`);
 
     this.client.setTimeout(10 * 1000);
@@ -110,12 +112,18 @@ export default class Device {
         return;
     }
 
+    const infoPacket = packet.data as InfoPacket;
+    if (infoPacket?.watchdog_enable_reboot) {
+      this.warn('Device rebooted by not updating watchdog.');
+    } else if (infoPacket?.watchdog_reboot) {
+      this.warn('Device rebooted by watchdog.');
+    }
+
     if (!this.isFirstLoad) {
       return;
     }
 
     this.isFirstLoad = false;
-    const infoPacket = packet.data as InfoPacket;
 
     const context = {
       info: infoPacket,

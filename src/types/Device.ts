@@ -15,6 +15,8 @@ export interface InputPacket<T = Record<string, any>> {
 }
 
 export interface InfoPacket {
+  watchdog_enable_reboot?: boolean;
+  watchdog_reboot?: boolean;
   firmware_version: string;
   serial_number: string;
   country_code: string;
